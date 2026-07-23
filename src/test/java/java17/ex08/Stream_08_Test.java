@@ -4,8 +4,13 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.Test;
@@ -57,14 +62,21 @@ public class Stream_08_Test {
 
 
     @Test
-    public void test_group() throws IOException {
+    public void test_group() throws IOException, URISyntaxException {
 
         // TODO utiliser la méthode java.nio.file.Files.lines pour créer un stream de lignes du fichier naissances_depuis_1900.csv
         // Le bloc try(...) permet de fermer (close()) le stream après utilisation
-        try (Stream<String> lines = null) {
+        try (Stream<String> lines = Files.lines(
+                Paths.get(Stream_08_Test.class.getClassLoader().getResource("naissances_depuis_1900.csv").toURI()))) {
 
             // TODO construire une MAP (clé = année de naissance, valeur = somme des nombres de naissance de l'année)
-            Map<String, Integer> result = null;
+            Map<String, Integer> result = lines
+                    .skip(1)
+                    .map(line -> line.split(";"))
+                    .collect(Collectors.groupingBy(
+                            fields -> fields[1],
+                            Collectors.summingInt(fields -> Integer.parseInt(fields[3]))
+                    ));
 
 
             assertThat(result.get("2015"), is(8097));
@@ -73,14 +85,19 @@ public class Stream_08_Test {
     }
 
     @Test
-    public void test_max() throws IOException {
+    public void test_max() throws IOException, URISyntaxException {
 
         // TODO utiliser la méthode java.nio.file.Files.lines pour créer un stream de lignes du fichier naissances_depuis_1900.csv
         // Le bloc try(...) permet de fermer (close()) le stream après utilisation
-        try (Stream<String> lines = null) {
+        try (Stream<String> lines = Files.lines(
+                Paths.get(Stream_08_Test.class.getClassLoader().getResource("naissances_depuis_1900.csv").toURI()))) {
 
             // TODO trouver l'année où il va eu le plus de nombre de naissance
-            Optional<Naissance> result = null;
+            Optional<Naissance> result = lines
+                    .skip(1)
+                    .map(line -> line.split(";"))
+                    .map(fields -> new Naissance(fields[1], fields[2], Integer.parseInt(fields[3])))
+                    .max(Comparator.comparingInt(Naissance::getNombre));
 
 
             assertThat(result.get().getNombre(), is(48));
@@ -93,11 +110,22 @@ public class Stream_08_Test {
     public void test_collectingAndThen() throws IOException {
         // TODO utiliser la méthode java.nio.file.Files.lines pour créer un stream de lignes du fichier naissances_depuis_1900.csv
         // Le bloc try(...) permet de fermer (close()) le stream après utilisation
-        try (Stream<String> lines = null) {
+        try (Stream<String> lines = Files.lines(
+                Paths.get(Stream_08_Test.class.getClassLoader().getResource("naissances_depuis_1900.csv").toURI()))) {
 
             // TODO construire une MAP (clé = année de naissance, valeur = maximum de nombre de naissances)
             // TODO utiliser la méthode "collectingAndThen" à la suite d'un "grouping"
-            Map<String, Naissance> result = null;
+            Map<String, Naissance> result = lines
+                    .skip(1)
+                    .map(line -> line.split(";"))
+                    .map(fields -> new Naissance(fields[1], fields[2], Integer.parseInt(fields[3])))
+                    .collect(Collectors.groupingBy(
+                            Naissance::getAnnee,
+                            Collectors.collectingAndThen(
+                                    Collectors.maxBy(Comparator.comparingInt(Naissance::getNombre)),
+                                    Optional::get
+                            )
+                    ));
 
             assertThat(result.get("2015").getNombre(), is(38));
             assertThat(result.get("2015").getJour(), is("20150909"));
@@ -106,6 +134,8 @@ public class Stream_08_Test {
             assertThat(result.get("1900").getNombre(), is(31));
             assertThat(result.get("1900").getJour(), is("19000123"));
             assertThat(result.get("1900").getAnnee(), is("1900"));
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
         }
     }
 
